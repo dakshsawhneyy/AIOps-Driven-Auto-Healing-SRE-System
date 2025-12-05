@@ -1,1 +1,8 @@
 flow.md
+.terraform
+.terraform*
+terraform.tfstate
+
+
+# kubernetes secret
+*_secret.yml
