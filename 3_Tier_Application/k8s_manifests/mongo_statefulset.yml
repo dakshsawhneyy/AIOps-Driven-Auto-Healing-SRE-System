@@ -1,0 +1,58 @@
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+
+# Stateful Set
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo-deployment
+  labels:
+    app: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  serviceName: "mongo-service"
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:latest
+        ports:
+        - containerPort: 27017
+
+        volumeMounts: 
+        - name: mongodb
+          mountPath: /data/db
+        
+        resources:
+          requests:
+            cpu: "100m"  
+            memory: "128Mi" 
+          limits:
+            cpu: "200m"  
+            memory: "256Mi" 
+
+  # Also write volume claim template
+  volumeClaimTemplates:
+  - metadata: 
+      name: mongodb
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi

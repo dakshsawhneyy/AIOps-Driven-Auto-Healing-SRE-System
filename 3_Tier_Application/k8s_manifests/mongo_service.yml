@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  labels:   # This was the issue
+    app: mongo
+spec:
+  selector:
+    app: mongo    # select pods with this label
+  ports:
+    - name: http
+      protocol: TCP
+      port: 27017
+      targetPort: 27017

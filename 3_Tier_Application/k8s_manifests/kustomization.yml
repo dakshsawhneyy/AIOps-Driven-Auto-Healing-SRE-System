@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - backend_deployment.yml
+  - backend_service.yml
+  - backend_secret.yml
+  - frontend_deployment.yml
+  - frontend_service.yml
+  - mongo_secret.yml
+  - mongo_service.yml
+  - mongo_statefulset.yml
+
+namespace: default

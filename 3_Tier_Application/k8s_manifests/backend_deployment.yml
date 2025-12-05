@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: dakshsawhneyy/discover_dollar_backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MONGO_URL
+          valueFrom:
+            secretKeyRef:
+              name: mongouri-secret
+              key: MONGO_URL
+        resources:
+          requests:
+            cpu: "100m"  
+            memory: "128Mi" 
+          limits:
+            cpu: "200m"  
+            memory: "256Mi" 
