@@ -6,6 +6,9 @@ output "kinesis_stream_name" {
   value = aws_kinesis_stream.fluentbit_metrics.name
 }
 
+output "kinesis_stream_arn" {
+  value = aws_kinesis_stream.fluentbit_metrics.arn
+}
 
 # IAM User Access Keys
 output "fluentbit_access_key" {
