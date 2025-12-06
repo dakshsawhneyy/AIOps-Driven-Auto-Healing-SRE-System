@@ -1,0 +1,143 @@
+# Corrected ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        1
+        Log_Level    info
+        Parsers_File /fluent-bit/etc/parsers.conf
+        HTTP_Server  On
+        HTTP_Listen  0.0.0.0
+        HTTP_Port    2020
+
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        Parser            docker
+        DB                /fluent-bit/tail.db
+        Mem_Buf_Limit     7MB
+        Refresh_Interval  5
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Merge_Log           On
+        Keep_Log            On
+        K8S-Logging.Parser  On
+    
+    # ADDED: Filter to run the Lua script
+    [FILTER]
+        Name   lua
+        Match  *
+        Script /fluent-bit/etc/aws-env-vars.lua
+        Call   set_aws_env_vars
+
+    # -------------------------
+    # CloudWatch Logs Output
+    # -------------------------
+    [OUTPUT]
+        Name                  cloudwatch_logs
+        Match                 *
+        region                ap-south-1
+        log_group_name        /aks/aiops-platform
+        log_stream_prefix     aks-
+        auto_create_group     true
+        # REMOVED the hardcoded $VARIABLES
+        # aws_access_key_id     $AWS_ACCESS_KEY_ID
+        # aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+
+    # -------------------------
+    # Kinesis Streams Output
+    # -------------------------
+    [OUTPUT]
+        Name                  kinesis_streams
+        Match                 *
+        region                ap-south-1
+        stream                fluentbit-metrics
+        # partition_key         container_name
+        # append_newline        On
+        # REMOVED the hardcoded $VARIABLES
+        # aws_access_key_id     $AWS_ACCESS_KEY_ID
+        # aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+  # ADDED: The Lua script content as a separate key in the ConfigMap
+  aws-env-vars.lua: |
+    function set_aws_env_vars(tag, timestamp, record)
+        record['aws_access_key_id'] = os.getenv("AWS_ACCESS_KEY_ID")
+        record['aws_secret_access_key'] = os.getenv("AWS_SECRET_ACCESS_KEY")
+        return 1, timestamp, record
+    end
+
+---
+# Your DaemonSet definition remains mostly correct
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  labels:
+    app: fluent-bit
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+    spec:
+      # Ensure you have created this ServiceAccount if needed for RBAC
+      serviceAccountName: default 
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:2.2.0
+          ports:
+            - containerPort: 2020
+              name: http
+          env:
+            # These env vars are injected at the container level
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: fluentbit-aws-credentials # This secret must exist
+                  key: AWS_ACCESS_KEY_ID
+
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fluentbit-aws-credentials # This secret must exist
+                  key: AWS_SECRET_ACCESS_KEY
+
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/
+            - name: varlog
+              mountPath: /var/log
+            - name: containers
+              mountPath: /var/lib/docker/containers
+
+      volumes:
+        - name: config
+          configMap:
+            name: fluent-bit-config
+
+        - name: varlog
+          hostPath:
+            path: /var/log
+
+        - name: containers
+          hostPath:
+            path: /var/lib/docker/containers
