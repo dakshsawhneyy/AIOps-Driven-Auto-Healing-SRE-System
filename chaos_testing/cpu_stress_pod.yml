@@ -1,17 +1,15 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: v1
+kind: Pod
 metadata:
-  name: cpu-stress
+  name: cpu-stress-pod
 spec:
-  template:
-    spec:
-      containers:
-      - name: stress
-        image: polinux/stress
-        # Spins up 4 CPU Cores and consume as much cpu for 300s
-        args:
-          - "--cpu"
-          - "4"
-          - "--timeout"
-          - "300s"
-      restartPolicy: Never
+  containers:
+  - name: stress-container
+    image: polinux/stress:latest
+    command: ["stress"]
+    args: ["--cpu", "4", "--timeout", "600s"]
+    resources:
+      limits:
+        cpu: "1000m"
+      requests:
+        cpu: "500m"
