@@ -1,0 +1,22 @@
+# Disable default output (Elasticsearch)
+output:
+  enabled: false
+
+# Enable and configure CloudWatch Logs output
+cloudWatchLogs:
+  enabled: true
+  region: "ap-south-1" # Replace with your AWS region
+  logGroupName: "/aws/eks/your-cluster-name/logs" # Your desired Log Group name
+  autoCreateGroup: true
+  # Ensure the service account has the necessary IAM role ARN annotated
+  roleArn: "arn:aws:iam::ACCOUNT_ID:role/your-fluentbit-role" 
+  # You can also use logStreamTemplate to organize logs, e.g., ${kubernetes['namespace_name']}/${kubernetes['pod_name']}
+  logStreamTemplate: "${kubernetes['namespace_name']}-${kubernetes['pod_name']}"
+
+# Enable and configure Kinesis Streams output
+kinesisStreams:
+  enabled: true
+  region: "us-east-1" # Replace with your AWS region
+  stream: "my-kinesis-log-stream" # Your Kinesis stream name
+  # Ensure the service account has the necessary IAM role ARN annotated
+  roleArn: "arn:aws:iam::ACCOUNT_ID:role/your-fluentbit-kinesis-role"
