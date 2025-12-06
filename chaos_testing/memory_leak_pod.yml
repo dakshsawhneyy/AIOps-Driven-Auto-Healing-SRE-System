@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mem-leak
+spec:
+  containers:
+  - name: memory-leak
+    image: polinux/stress
+    args:
+      - "--vm"
+      - "1"              # number of memory workers
+      - "--vm-bytes"
+      - "500M"           # allocate 500MB each
+      - "--vm-hang"
+      - "1"              # never release memory
+    resources:
+      requests:
+        memory: "200Mi"
+      limits:
+        memory: "800Mi"  # triggers OOM once it crosses this
