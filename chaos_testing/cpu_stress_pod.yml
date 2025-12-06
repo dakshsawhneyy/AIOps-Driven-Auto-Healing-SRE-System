@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cpu-stress
+spec:
+  template:
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        # Spins up 4 CPU Cores and consume as much cpu for 300s
+        args:
+          - "--cpu"
+          - "4"
+          - "--timeout"
+          - "300s"
+      restartPolicy: Never
