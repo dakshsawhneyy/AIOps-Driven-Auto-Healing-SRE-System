@@ -5,3 +5,7 @@ variable "project_name" {
 variable "location" {
   default = "Central India"
 }
+
+variable "region" {
+  default = "ap-south-1"
+}

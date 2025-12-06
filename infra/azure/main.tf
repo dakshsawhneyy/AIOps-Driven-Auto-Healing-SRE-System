@@ -4,6 +4,8 @@
 resource "azurerm_resource_group" "demo" {
   name     = var.project_name
   location = var.location
+
+  tags = local.common_tags
 }
 
 ##########################
@@ -13,6 +15,8 @@ resource "azurerm_network_security_group" "demo" {
   name                = "${var.project_name}-nsg"
   location            = azurerm_resource_group.demo.location
   resource_group_name = azurerm_resource_group.demo.name
+
+  tags = local.common_tags
 }
 
 ##########################
@@ -63,7 +67,7 @@ resource "azurerm_kubernetes_cluster" "demo" {
 }
 
 ##########################
-# ACR Cluster
+# ACR
 ##########################
 resource "azurerm_container_registry" "acr" {
   name                = "${var.project_name}"
@@ -71,4 +75,6 @@ resource "azurerm_container_registry" "acr" {
   location            = azurerm_resource_group.demo.location
   sku                 = "Basic"
   admin_enabled       = false
+
+  tags = local.common_tags
 }
