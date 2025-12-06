@@ -10,10 +10,11 @@ data "terraform_remote_state" "aws" {
 
 
 locals {
-
   log_group_name = data.terraform_remote_state.aws.outputs.log_group_name
   kinesis_stream_name = data.terraform_remote_state.aws.outputs.kinesis_stream_name
-  role_arn            = data.terraform_remote_state.aws.outputs.fluentbit_role_arn
+  fluentbit_access_key = data.terraform_remote_state.aws.outputs.fluentbit_access_key
+  fluentbit_secret_key = data.terraform_remote_state.aws.outputs.fluentbit_secret_key
+  aws_region = "ap-south-1"
 
   common_tags = {
     Project     = var.project_name
@@ -21,5 +22,4 @@ locals {
     CreatedBy   = "DakshSawhney"
     CreatedDate = formatdate("YYYY-MM-DD", timestamp())
   }
-  
 }
