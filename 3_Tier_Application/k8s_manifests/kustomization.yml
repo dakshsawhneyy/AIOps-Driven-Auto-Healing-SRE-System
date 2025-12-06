@@ -7,6 +7,7 @@ resources:
   - backend_secret.yml
   - frontend_deployment.yml
   - frontend_service.yml
+  - frontend_hpa.yml
   - mongo_secret.yml
   - mongo_service.yml
   - mongo_statefulset.yml
