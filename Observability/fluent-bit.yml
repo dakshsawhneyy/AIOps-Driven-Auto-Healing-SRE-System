@@ -1,4 +1,3 @@
-# Corrected ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -30,13 +29,6 @@ data:
         Merge_Log           On
         Keep_Log            On
         K8S-Logging.Parser  On
-    
-    # ADDED: Filter to run the Lua script
-    [FILTER]
-        Name   lua
-        Match  *
-        Script /fluent-bit/etc/aws-env-vars.lua
-        Call   set_aws_env_vars
 
     # -------------------------
     # CloudWatch Logs Output
@@ -48,9 +40,7 @@ data:
         log_group_name        /aks/aiops-platform
         log_stream_prefix     aks-
         auto_create_group     true
-        # REMOVED the hardcoded $VARIABLES
-        # aws_access_key_id     $AWS_ACCESS_KEY_ID
-        # aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+        auto_retry_requests   On
 
     # -------------------------
     # Kinesis Streams Output
@@ -60,11 +50,7 @@ data:
         Match                 *
         region                ap-south-1
         stream                fluentbit-metrics
-        # partition_key         container_name
-        # append_newline        On
-        # REMOVED the hardcoded $VARIABLES
-        # aws_access_key_id     $AWS_ACCESS_KEY_ID
-        # aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+        auto_retry_requests   On
 
   parsers.conf: |
     [PARSER]
@@ -74,16 +60,7 @@ data:
         Time_Format %Y-%m-%dT%H:%M:%S.%L
         Time_Keep   On
 
-  # ADDED: The Lua script content as a separate key in the ConfigMap
-  aws-env-vars.lua: |
-    function set_aws_env_vars(tag, timestamp, record)
-        record['aws_access_key_id'] = os.getenv("AWS_ACCESS_KEY_ID")
-        record['aws_secret_access_key'] = os.getenv("AWS_SECRET_ACCESS_KEY")
-        return 1, timestamp, record
-    end
-
 ---
-# Your DaemonSet definition remains mostly correct
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -99,26 +76,27 @@ spec:
       labels:
         app: fluent-bit
     spec:
-      # Ensure you have created this ServiceAccount if needed for RBAC
-      serviceAccountName: default 
+      serviceAccountName: default
+
       containers:
         - name: fluent-bit
           image: cr.fluentbit.io/fluent/fluent-bit:2.2.0
           ports:
             - containerPort: 2020
               name: http
+
+          # AWS credentials injected from Secret
           env:
-            # These env vars are injected at the container level
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: fluentbit-aws-credentials # This secret must exist
+                  name: fluentbit-aws-credentials
                   key: AWS_ACCESS_KEY_ID
 
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: fluentbit-aws-credentials # This secret must exist
+                  name: fluentbit-aws-credentials
                   key: AWS_SECRET_ACCESS_KEY
 
           volumeMounts:
