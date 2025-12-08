@@ -2,6 +2,7 @@ import base64
 import boto3
 import json
 import os
+import uuid
 from datetime import datetime
 
 s3 = boto3.client("s3")
@@ -40,16 +41,16 @@ def detect_type(record):
     return "unknown"
 
 # -----------------------------
-# UPLOAD WITH PARTITIONING
+# UPLOAD WITH CLEAN PARTITIONING
 # -----------------------------
 def upload_to_s3(normalized, record_type):
-    partition_prefix = f"{record_type}s"  # "metrics" or "logs"
+    # record_type = "metric" → "metrics"
+    folder = "metrics" if record_type == "metric" else "logs"
 
-    key = (
-        f"normalized/{partition_prefix}/"
-        f"{datetime.utcnow().strftime('%Y/%m/%d/%H/')}"
-        f"{normalized['timestamp']}.json"
-    )
+    timestamp_prefix = datetime.utcnow().strftime("%Y/%m/%d/")
+    file_id = str(uuid.uuid4()) + ".json"
+
+    key = f"{folder}/{timestamp_prefix}{file_id}"
 
     s3.put_object(
         Bucket=BUCKET,
@@ -67,7 +68,7 @@ def process_record(decoded_payload):
     try:
         record_json = json.loads(decoded_payload)
     except:
-        return None, None  # skip invalid JSON
+        return None, None
 
     record_type = detect_type(record_json)
 
@@ -85,8 +86,6 @@ def process_record(decoded_payload):
 def handler(event, context):
     results = []
 
-    print("Event: ", event)
-
     for record in event["Records"]:
         payload = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
 
@@ -98,7 +97,7 @@ def handler(event, context):
 
         results.append({
             "type": rtype,
-            "normalized_key": s3_key
+            "s3_key": s3_key
         })
 
     return {"normalized_records": len(results)}
