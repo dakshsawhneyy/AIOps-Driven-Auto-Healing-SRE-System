@@ -3,9 +3,14 @@
 #########################
 resource "aws_s3_bucket" "bucket" {
   bucket = var.bucket_name
-  force_destroy = true
+  #force_destroy = false
+
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 
   # aws s3 rm s3://aiopsplatform-data-bucket --recursive ## Delete bucket
+  # terraform state rm aws_s3_bucket.bucket
 }
 
 ########################
