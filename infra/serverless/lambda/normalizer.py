@@ -8,6 +8,48 @@ from datetime import datetime
 s3 = boto3.client("s3")
 BUCKET = os.environ.get("TARGET_BUCKET")
 
+
+# ======================================================
+# CHAOS EVENT LABELING
+# ======================================================
+
+def save_chaos_event(event_type, start_timestamp, end_timestamp):
+    """
+    Writes a chaos event metadata file to S3 for ML training
+    """
+
+    # Folder mapping
+    event_map = {
+        "cpu_spike": "cpu",
+        "memory_leak": "memory",
+        "high_traffic": "traffic",
+        "latency_spike": "latency",
+        "pod_crash": "pod_crash"
+    }
+
+    folder = event_map.get(event_type)
+    if not folder:
+        raise ValueError(f"Unknown event type: {event_type}")
+
+    file_id = str(uuid.uuid4()) + ".json"
+    key = f"training/{folder}/{file_id}"
+
+    body = {
+        "start_timestamp": start_timestamp,
+        "end_timestamp": end_timestamp,
+        "label": event_type
+    }
+
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=key,
+        Body=json.dumps(body),
+        ContentType="application/json"
+    )
+
+    return key
+
+
 # -----------------------------
 # Normalizers
 # -----------------------------
