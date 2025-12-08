@@ -4,55 +4,124 @@ import json
 import os
 import uuid
 from datetime import datetime
+from dateutil.parser import parse as parse_dt   # <-- IMPORTANT
 
 s3 = boto3.client("s3")
 BUCKET = os.environ.get("TARGET_BUCKET")
 
+# =====================================================================
+# LOAD CHAOS LABELS FROM S3
+# =====================================================================
 
-# ======================================================
-# CHAOS EVENT LABELING
-# ======================================================
-
-def save_chaos_event(event_type, start_timestamp, end_timestamp):
+def load_labels_from_s3():
     """
-    Writes a chaos event metadata file to S3 for ML training
+    Walks through training/<label>/*.json files
+    Returns list of:
+    { "label": "...", "start": datetime, "end": datetime }
     """
 
-    # Folder mapping
-    event_map = {
-        "cpu_spike": "cpu",
-        "memory_leak": "memory",
-        "high_traffic": "traffic",
-        "latency_spike": "latency",
-        "pod_crash": "pod_crash"
+    label_types = ["cpu", "memory", "latency", "traffic", "pod_crash"]
+    labels = []
+
+    for label in label_types:
+        prefix = f"training/{label}/"
+
+        resp = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)
+
+        if "Contents" not in resp:
+            continue
+
+        for item in resp["Contents"]:
+            obj = s3.get_object(Bucket=BUCKET, Key=item["Key"])
+            data = json.loads(obj["Body"].read())
+
+            labels.append({
+                "label": label,
+                "start": parse_dt(data["start_timestamp"]),
+                "end": parse_dt(data["end_timestamp"])
+            })
+
+    return labels
+
+# =====================================================================
+# LOAD METRICS FROM S3
+# =====================================================================
+
+def load_metrics_from_s3():
+    """
+    Scans metrics/ folder and returns ALL metrics as:
+    {timestamp, value}
+    """
+
+    metrics = []
+
+    resp = s3.list_objects_v2(Bucket=BUCKET, Prefix="metrics/")
+
+    if "Contents" not in resp:
+        return metrics
+
+    for item in resp["Contents"]:
+        obj = s3.get_object(Bucket=BUCKET, Key=item["Key"])
+        data = json.loads(obj["Body"].read())
+
+        ts = parse_dt(data["timestamp"])
+        value = data["value"]
+
+        metrics.append({"timestamp": ts, "value": value})
+
+    return metrics
+
+# =====================================================================
+# MATCH METRICS TO LABEL WINDOWS
+# =====================================================================
+
+def generate_training_datasets():
+    labels = load_labels_from_s3()
+    metrics = load_metrics_from_s3()
+
+    # Prepare dataset buckets
+    dataset = {
+        "cpu": [],
+        "memory": [],
+        "latency": [],
+        "traffic": [],
+        "pod_crash": []
     }
 
-    folder = event_map.get(event_type)
-    if not folder:
-        raise ValueError(f"Unknown event type: {event_type}")
+    # Match metrics to windows
+    for metric in metrics:
+        ts = metric["timestamp"]
 
-    file_id = str(uuid.uuid4()) + ".json"
-    key = f"training/{folder}/{file_id}"
+        for window in labels:
+            if window["start"] <= ts <= window["end"]:
+                dataset[window["label"]].append({
+                    "timestamp": ts.isoformat(),
+                    "value": metric["value"],
+                    "label": window["label"]
+                })
 
-    body = {
-        "start_timestamp": start_timestamp,
-        "end_timestamp": end_timestamp,
-        "label": event_type
-    }
+    # Upload CSVs
+    for label, rows in dataset.items():
+        csv_data = "timestamp,value,label\n"
 
-    s3.put_object(
-        Bucket=BUCKET,
-        Key=key,
-        Body=json.dumps(body),
-        ContentType="application/json"
-    )
+        for row in rows:
+            csv_data += f"{row['timestamp']},{row['value']},{label}\n"
 
-    return key
+        key = f"training-data/{label}.csv"
 
+        s3.put_object(
+            Bucket=BUCKET,
+            Key=key,
+            Body=csv_data,
+            ContentType="text/csv"
+        )
 
-# -----------------------------
-# Normalizers
-# -----------------------------
+    return {"status": "training data generated"}
+
+# =====================================================================
+# EXISTING CODE: PROCESS REAL-TIME KINESIS (UNMODIFIED BELOW)
+# =====================================================================
+
 def normalize_metric(record):
     return {
         "timestamp": record.get("timestamp") or datetime.utcnow().isoformat(),
@@ -72,9 +141,6 @@ def normalize_log(record):
         "node": record.get("node", "unknown-node")
     }
 
-# -----------------------------
-# TYPE DETECTION
-# -----------------------------
 def detect_type(record):
     if "metric_type" in record:
         return "metric"
@@ -82,16 +148,10 @@ def detect_type(record):
         return "log"
     return "unknown"
 
-# -----------------------------
-# UPLOAD WITH CLEAN PARTITIONING
-# -----------------------------
 def upload_to_s3(normalized, record_type):
-    # record_type = "metric" → "metrics"
     folder = "metrics" if record_type == "metric" else "logs"
-
     timestamp_prefix = datetime.utcnow().strftime("%Y/%m/%d/")
     file_id = str(uuid.uuid4()) + ".json"
-
     key = f"{folder}/{timestamp_prefix}{file_id}"
 
     s3.put_object(
@@ -103,9 +163,6 @@ def upload_to_s3(normalized, record_type):
 
     return key
 
-# -----------------------------
-# PROCESS EACH RECORD
-# -----------------------------
 def process_record(decoded_payload):
     try:
         record_json = json.loads(decoded_payload)
@@ -116,17 +173,30 @@ def process_record(decoded_payload):
 
     if record_type == "metric":
         return normalize_metric(record_json), "metric"
-
     if record_type == "log":
         return normalize_log(record_json), "log"
 
     return None, None
 
-# -----------------------------
+# =====================================================================
 # MAIN HANDLER
-# -----------------------------
+# =====================================================================
+
 def handler(event, context):
+
+    # ------------------------------------------------------------
+    # MODE 1 → GENERATE DATASET
+    # ------------------------------------------------------------
+    if event.get("generate_dataset") == True:
+        return generate_training_datasets()
+
+    # ------------------------------------------------------------
+    # MODE 2 → NORMAL KINESIS PROCESSING
+    # ------------------------------------------------------------
     results = []
+
+    if "Records" not in event:
+        return {"status": "no live records"}
 
     for record in event["Records"]:
         payload = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
