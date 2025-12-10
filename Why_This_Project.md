@@ -53,3 +53,4 @@
 - Multi-cloud integration
 - Identity + IAM + Managed Identity
 - Serverless compute
+- 
