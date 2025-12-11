@@ -3,99 +3,176 @@ kind: ConfigMap
 metadata:
   name: fluent-bit-config
 data:
-
   fluent-bit.conf: |
     [SERVICE]
         Flush        1
         Log_Level    info
         Parsers_File /fluent-bit/etc/parsers.conf
+        HTTP_Server  On
+        HTTP_Listen  0.0.0.0
+        HTTP_Port    2020
 
-    ##########################################
-    # LOG INPUT
-    ##########################################
+    # -------------------------
+    # LOGS INPUT
+    # -------------------------
     [INPUT]
-        Name tail
-        Tag logs.*
-        Path /var/log/containers/*.log
-        Parser docker
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        Parser            docker
+        DB                /fluent-bit/tail.db
+        Mem_Buf_Limit     7MB
+        Refresh_Interval  5
+        Skip_Long_Lines   On
 
     [FILTER]
-        Name kubernetes
-        Match logs.*
-        Merge_Log On
-        Keep_Log On
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Merge_Log           On
+        Keep_Log            On
+        K8S-Logging.Parser  On
 
-    ##########################################
-    # METRICS INPUT (Node Exporter)
-    ##########################################
+    # -------------------------
+    # METRICS INPUTS
+    # -------------------------
     [INPUT]
-        Name node_exporter_metrics
-        Tag metrics.node
-        Host localhost
-        Port 9100
+        Name cpu
+        Tag metrics.cpu
         Interval_Sec 5
 
-    ##########################################
-    # METRIC NORMALIZER (LUA)
-    ##########################################
+    [INPUT]
+        Name mem
+        Tag metrics.mem
+        Interval_Sec 5
+
+    [INPUT]
+        Name netif
+        Tag metrics.net
+        Interface eth0
+        Interval_Sec 5
+
+    # -------------------------
+    # METRICS NORMALIZATION LUA
+    # -------------------------
     [FILTER]
         Name lua
-        Match metrics.node
-        Script /fluent-bit/etc/metrics-normalizer.lua
-        Call normalize
-
-    ##########################################
-    # OUTPUTS
-    ##########################################
-
-    # Logs → CloudWatch
-    [OUTPUT]
-        Name cloudwatch_logs
-        Match logs.*
-        region ap-south-1
-        log_group_name /aks/aiops-platform
-        auto_create_group On
-
-    # Metrics → Kinesis
-    [OUTPUT]
-        Name kinesis_streams
         Match metrics.*
-        region ap-south-1
-        stream fluentbit-metrics
-        auto_retry_requests On
+        Script /fluent-bit/etc/metrics-normalizer.lua
+        Call normalize_metrics
+
+    # -------------------------
+    # OUTPUTS
+    # -------------------------
+
+    # CloudWatch for logs
+    [OUTPUT]
+        Name                  cloudwatch_logs
+        Match                 kube.*
+        region                ap-south-1
+        log_group_name        /aks/aiops-platform
+        log_stream_prefix     aks-
+        auto_create_group     true
+        auto_retry_requests   On
+
+    # Kinesis for metrics + logs
+    [OUTPUT]
+        Name                  kinesis_streams
+        Match                 metrics.*
+        region                ap-south-1
+        stream                fluentbit-metrics
+        auto_retry_requests   On
 
   parsers.conf: |
     [PARSER]
-        Name docker
-        Format json
-        Time_Key time
+        Name        docker
+        Format      json
+        Time_Key    time
         Time_Format %Y-%m-%dT%H:%M:%S.%L
-        Time_Keep On
+        Time_Keep   On
 
+  # -----------------------------
+  # NEW: METRICS NORMALIZER LUA
+  # -----------------------------
   metrics-normalizer.lua: |
-    function normalize(tag, ts, record)
-        local out = {}
-        local name = record["name"]
+    function normalize_metrics(tag, ts, record)
+        local t = {}
 
-        if name == "node_cpu_seconds_total" then
-            out["metric_type"] = "cpu"
-            out["value"] = record["value"] or 0
-
-        elseif name == "node_memory_Active_bytes" then
-            out["metric_type"] = "memory"
-            out["value"] = record["value"] or 0
-
-        elseif name == "node_network_transmit_bytes_total" then
-            out["metric_type"] = "traffic"
-            out["value"] = record["value"] or 0
-
+        if tag == "metrics.cpu" then
+            t["metric_type"] = "cpu"
+            t["value"] = record["cpu_p"] or record["usage"] or 0
+        elseif tag == "metrics.mem" then
+            t["metric_type"] = "memory"
+            t["value"] = record["mem_used_percent"] or record["used_percent"] or 0
+        elseif tag == "metrics.net" then
+            t["metric_type"] = "traffic"
+            t["value"] = record["tx_bytes"] or 0
         else
             return 0, ts, record
         end
 
-        out["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ", ts)
-        out["service"] = "aks"
-        out["node"] = record["instance"] or "aks-node"
+        t["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ", ts)
+        t["node"] = record["host"] or "unknown-node"
+        t["service"] = "aks"
 
-        return 1, ts, out
+        return 1, ts, t
     end
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  labels:
+    app: fluent-bit
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+    spec:
+      serviceAccountName: default
+
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:2.2.0
+          ports:
+            - containerPort: 2020
+              name: http
+
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: fluentbit-aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fluentbit-aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/
+            - name: varlog
+              mountPath: /var/log
+            - name: containers
+              mountPath: /var/lib/docker/containers
+
+      volumes:
+        - name: config
+          configMap:
+            name: fluent-bit-config
+
+        - name: varlog
+          hostPath:
+            path: /var/log
+
+        - name: containers
+          hostPath:
+            path: /var/lib/docker/containers
