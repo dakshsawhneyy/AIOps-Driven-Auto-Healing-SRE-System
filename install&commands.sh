@@ -19,5 +19,3 @@ helm install node-exporter prometheus-community/prometheus-node-exporter
   "action": "end",
   "label": "cpu"
 }
-
-
