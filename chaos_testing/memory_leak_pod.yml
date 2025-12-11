@@ -6,6 +6,7 @@ spec:
   containers:
   - name: memory-leak
     image: polinux/stress
+    command: ["stress"]
     args:
       - "--vm"
       - "1"              # number of memory workers
