@@ -149,7 +149,7 @@ def detect_type(record):
     return "unknown"
 
 def upload_to_s3(normalized, record_type):
-    folder = "metrics" if record_type == "metric" else "logs"
+    folder = "normalized/metrics" if record_type == "metric" else "normalized/logs"
     timestamp_prefix = datetime.utcnow().strftime("%Y/%m/%d/")
     file_id = str(uuid.uuid4()) + ".json"
     key = f"{folder}/{timestamp_prefix}{file_id}"
