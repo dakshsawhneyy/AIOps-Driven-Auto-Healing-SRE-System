@@ -31,6 +31,7 @@ resource "aws_lambda_function" "normalizer" {
   handler          = "normalizer.handler"
   source_code_hash = data.archive_file.normalizer.output_base64sha256
 
+  timeout = 400
   runtime = "python3.12"
 
   environment {

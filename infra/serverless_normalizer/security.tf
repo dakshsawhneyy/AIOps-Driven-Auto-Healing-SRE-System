@@ -31,6 +31,7 @@ resource "aws_iam_role_policy" "lambda_additional_permissions" {
       {
         Effect = "Allow",
         Action = [
+          "s3:GetObject",
           "s3:PutObject",
           "s3:PutObjectAcl"
         ],
