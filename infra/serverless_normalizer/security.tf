@@ -1,6 +1,6 @@
 # Creation of IAM Role
 resource "aws_iam_role" "lambda_execution_role" {
-  name = "${var.project_name}-serverless-role"
+  name = "${var.project_name}-normalizer-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -35,6 +35,13 @@ resource "aws_iam_role_policy" "lambda_additional_permissions" {
           "s3:PutObjectAcl"
         ],
         Resource = "arn:aws:s3:::${var.bucket_name}/*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket"
+        ],
+        Resource = "arn:aws:s3:::${var.bucket_name}"
       },
 
       # Kinesis permissions required for Lambda triggers
