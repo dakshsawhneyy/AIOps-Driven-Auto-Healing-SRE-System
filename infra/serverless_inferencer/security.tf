@@ -32,9 +32,23 @@ resource "aws_iam_role_policy" "lambda_additional_permissions" {
         Effect = "Allow",
         Action = [
           "s3:PutObject",
+          "s3:GetObject",
           "s3:PutObjectAcl"
         ],
         Resource = "arn:aws:s3:::${var.bucket_name}/*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "kinesis:GetRecords",
+          "kinesis:PutRecords",
+          "kinesis:PutRecord",
+          "kinesis:GetShardIterator",
+          "kinesis:DescribeStream",
+          "kinesis:ListStreams",
+          "kinesis:DescribeStreamSummary"
+        ],
+        Resource = local.kinesis_stream_arn
       }
     ]
   })
