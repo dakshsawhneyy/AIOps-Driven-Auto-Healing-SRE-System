@@ -27,3 +27,19 @@ output "fluentbit_secret_key" {
   value = aws_iam_access_key.fluentbit_keys.secret
   sensitive = true
 }
+
+
+output "sns_topic_name" {
+  value = aws_sns_topic.sns-topic.name
+}
+output "sns_topic_arn" {
+  value = aws_sns_topic.sns-topic.arn
+}
+
+
+output "dynamodb_table_name" {
+  value = aws_dynamodb_table.table.name
+}
+output "dynamodb_table_arn" {
+  value = aws_dynamodb_table.table.arn
+}
