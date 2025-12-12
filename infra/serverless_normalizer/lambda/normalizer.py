@@ -4,11 +4,13 @@ import boto3
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dateutil.parser import parse as parse_dt
 
 s3 = boto3.client("s3")
+kinesis = boto3.client("kinesis")
 BUCKET = os.environ.get("TARGET_BUCKET")
+INFERENCE_STREAM = os.environ.get("INFERENCE_STREAM")
 
 # -------------------------
 # helpers
@@ -77,7 +79,12 @@ def load_metrics_from_s3():
             print("skip bad json", item["Key"], e)
             continue
 
-        ts = to_utc(data.get("timestamp"))
+        raw = data.get("timestamp")
+
+        if isinstance(raw, (int, float)):
+            ts = datetime.fromtimestamp(raw, tz=timezone.utc)
+        else:
+            ts = to_utc(raw)
         # Some normalizers may produce numeric strings: ensure float
         try:
             value = float(data.get("value", 0))
@@ -111,7 +118,9 @@ def generate_training_datasets():
         for window in labels:
             if window["end"] is None:
                 continue  # skip open windows
-            if window["start"] <= ts <= window["end"]:
+            
+            TOLERANCE = timedelta(seconds=10)
+            if (window["start"] - TOLERANCE) <= ts <= (window["end"] + TOLERANCE):
                 dataset[window["label"]].append({
                     "timestamp": ts.isoformat(),
                     "value": metric["value"],
@@ -135,9 +144,22 @@ def generate_training_datasets():
 # runtime normalizer for Kinesis events
 # -------------------------
 def normalize_metric(record):
+    
+    raw_ts = record.get("timestamp")
+
+    # convert UNIX timestamp → datetime
+    if isinstance(raw_ts, (int, float)):
+        ts = datetime.fromtimestamp(raw_ts, tz=timezone.utc)
+    # convert ISO string → datetime
+    elif isinstance(raw_ts, str):
+        ts = to_utc(raw_ts)
+    # fallback
+    else:
+        ts = datetime.now(timezone.utc)
+    
     # record already a dict
     return {
-        "timestamp": record.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+        "timestamp": ts.isoformat(),
         "service": record.get("service", "unknown"),
         "node": record.get("node", "unknown-node"),
         "metric_type": record.get("metric_type", "unknown"),
@@ -167,6 +189,11 @@ def upload_to_s3(normalized, record_type):
     file_id = str(uuid.uuid4()) + ".json"
     key = f"{folder}/{timestamp_prefix}{file_id}"
     s3.put_object(Bucket=BUCKET, Key=key, Body=json.dumps(normalized), ContentType="application/json")
+    
+    # Add to kinesis as well
+    if record_type == "metric":
+        kinesis.put_record(StreamName=INFERENCE_STREAM, Data=json.dumps(normalized), PartitionKey="metric")
+        print("Metrics added to kinesis successfully")
     return key
 
 def process_record(decoded_payload):

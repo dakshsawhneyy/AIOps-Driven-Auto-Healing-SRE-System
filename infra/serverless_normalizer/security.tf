@@ -56,6 +56,19 @@ resource "aws_iam_role_policy" "lambda_additional_permissions" {
           "kinesis:DescribeStreamSummary"
         ],
         Resource = local.kinesis_stream_arn
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "kinesis:GetRecords",
+          "kinesis:PutRecords",
+          "kinesis:PutRecord",
+          "kinesis:GetShardIterator",
+          "kinesis:DescribeStream",
+          "kinesis:ListStreams",
+          "kinesis:DescribeStreamSummary"
+        ],
+        Resource = local.kinesis_normalizer_stream_arn
       }
     ]
   })

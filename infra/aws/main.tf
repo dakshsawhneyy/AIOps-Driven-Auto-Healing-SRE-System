@@ -8,10 +8,13 @@ resource "aws_cloudwatch_log_group" "aks_logs" {
 
 
 ############################
-# Kinesis Stream
+# Kinesis Streams
 ############################
 resource "aws_kinesis_stream" "fluentbit_metrics" {
   name        = "fluentbit-metrics"
   shard_count = 1
 }
-
+resource "aws_kinesis_stream" "normalizer_metrics" {
+  name        = "normalizer_metrics"
+  shard_count = 1
+}
