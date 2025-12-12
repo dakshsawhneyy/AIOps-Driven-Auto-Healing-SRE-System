@@ -12,6 +12,8 @@ locals {
 
   kinesis_stream_arn = data.terraform_remote_state.aws.outputs.kinesis_stream_arn
   kinesis_stream_name = data.terraform_remote_state.aws.outputs.kinesis_stream_name
+  kinesis_normalizer_stream_arn = data.terraform_remote_state.aws.outputs.normalizer_kinesis_stream_arn
+  kinesis_normalizer_stream_name = data.terraform_remote_state.aws.outputs.normalizer_kinesis_stream_name
 
   common_tags = {
     Project     = var.project_name

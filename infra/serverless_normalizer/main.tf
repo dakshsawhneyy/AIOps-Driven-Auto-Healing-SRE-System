@@ -37,6 +37,7 @@ resource "aws_lambda_function" "normalizer" {
   environment {
     variables = {
       TARGET_BUCKET = aws_s3_bucket.bucket.bucket
+      INFERENCE_STREAM = local.kinesis_normalizer_stream_name
     }
   }
 
