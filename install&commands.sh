@@ -6,7 +6,7 @@ helm install node-exporter prometheus-community/prometheus-node-exporter
 
 # Normalizer test event
 {
-   "generate_dataset": true
+  "generate_dataset": true
 }
 
 
@@ -56,4 +56,12 @@ docker buildx build \
   -t inference:latest \
   --load \
   .
+
+
+# Inside Auto Healing Engine -- By a test container in which curl is already installed
+kubectl run test --rm -it --image=curlimages/curl -- sh
+curl -X POST http://auto-healer/heal/cpu
+curl -X POST http://auto-healer/heal/memory
+curl -X POST http://auto-healer/heal/traffic
+
 
