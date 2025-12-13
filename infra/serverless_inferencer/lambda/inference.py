@@ -70,20 +70,19 @@ def store_incident(item):
 # Send SNS alert
 # -----------------------------
 def send_alert(item):
-    message = f"""
-AIOps Anomaly Detected 
-
-Metric: {item['metric_type']}
-Value: {item['value']}
-Node: {item['node']}
-Prediction: {item['prediction']}
-Severity: HIGH
-Timestamp: {item['timestamp']}
-"""
     sns.publish(
         TopicArn=SNS_TOPIC,
         Subject="AIOps Incident Alert",
-        Message=message
+        Message=json.dumps({
+            "incident_id": item["incident_id"],
+            "metric_type": item["metric_type"],
+            "value": float(item["value"]),   # convert Decimal → float for JSON
+            "node": item["node"],
+            "service": item["service"],
+            "prediction": item["prediction"],
+            "severity": item["severity"],
+            "timestamp": item["timestamp"]
+        })
     )
     print(f"Pushing message to SNS Topic {SNS_TOPIC}")
 
