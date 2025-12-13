@@ -5,6 +5,9 @@ import base64
 from datetime import datetime, timezone
 import pickle
 from uuid import uuid4
+import joblib
+from io import BytesIO
+from decimal import Decimal
 
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
@@ -32,7 +35,7 @@ def load_models():
             print(f"Loading: {key}")
             obj = s3.get_object(Bucket=MODEL_BUCKET, Key=key)
             body = obj["Body"].read()
-            models[m] = pickle.loads(body)
+            models[m] = joblib.load(BytesIO(body))
             print(f"Loaded model: {m}")
         except Exception as e:
             print(f"ERROR loading model {m}: {e}")
@@ -92,15 +95,20 @@ def handler(event, context):
 
     print("handler started")
     
+    print("Starting Loop")
     for record in event["Records"]:
         payload = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
         metric = json.loads(payload)
+        print("Metric: ", metric)
 
         metric_type = metric["metric_type"]
-        value = float(metric["value"])
+        value = Decimal(str(metric["value"]))
 
         model = models.get(metric_type)
+        print("Model: ", model)
+        
         pred = predict(model, value)   # -1 → anomaly
+        print("pred: ", pred)
 
         if pred == -1:
             incident = {
@@ -116,7 +124,9 @@ def handler(event, context):
 
             store_incident(incident)
             send_alert(incident)
-
+        else:
+            print("Everything's perfect. No Anomaly Detected")
+        
         results.append({"metric_type": metric_type, "prediction": pred})
 
     return {"processed": len(results), "results": results}

@@ -15,7 +15,7 @@ resource "aws_iam_role" "lambda_execution_role" {
 
 # Attatching policy with ECS Role
 resource "aws_iam_role_policy_attachment" "lambda_execution_policy" {
-  role       = aws_iam_role.lambda_execution_role.id
+  role       = aws_iam_role.lambda_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -49,7 +49,23 @@ resource "aws_iam_role_policy" "lambda_additional_permissions" {
           "kinesis:DescribeStreamSummary"
         ],
         Resource = local.kinesis_stream_arn
-      }
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:GetItem",
+        ],
+        Resource = "${local.dynamodb_table_arn}"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "sns:Publish"
+        ],
+        Resource = "${local.sns_topic_arn}"
+      },
     ]
   })
 }
