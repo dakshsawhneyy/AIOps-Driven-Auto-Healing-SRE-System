@@ -8,6 +8,13 @@ data "terraform_remote_state" "aws" {
   }
 }
 
+
+# Fetch latest image from ECR
+data "aws_ecr_image" "inference" {
+  repository_name = "inference"
+  image_tag       = "latest"
+}
+
 locals {
 
   sns_topic_arn = data.terraform_remote_state.aws.outputs.sns_topic_arn
@@ -15,6 +22,9 @@ locals {
   dynamodb_table_arn = data.terraform_remote_state.aws.outputs.dynamodb_table_arn
   dynamodb_table_name = data.terraform_remote_state.aws.outputs.dynamodb_table_name
   kinesis_stream_arn = data.terraform_remote_state.aws.outputs.normalizer_kinesis_stream_arn
+
+  ecr_repo_uri = data.aws_ecr_image.inference.image_uri
+  ecr_repo_digest = data.aws_ecr_image.inference.image_digest
 
   common_tags = {
     Project     = var.project_name
