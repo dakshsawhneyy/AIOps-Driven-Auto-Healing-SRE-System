@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auto-healer
+  labels:   # This was the issue
+    app: auto-healer
+spec:
+  selector:
+    app: auto-healer    # select pods with this label
+  type: ClusterIP
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000

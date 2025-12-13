@@ -1,0 +1,35 @@
+# Creating Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aiops-sa # sa stands for ServiceAccount
+---
+
+# Creating ClusterRole and giving it permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aiops-role
+rules:
+# This rule gives permission to manage pods (for users attack experiment)
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+# This new rule gives permission to manage deployments (for second experiment)
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale"]
+  verbs: ["get", "patch", "list"] # "patch" is the permission needed to scale
+---
+
+# Attaching Role with Service Account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aiops-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: aiops-sa # sa stands for ServiceAccount
+roleRef:
+  kind: Role
+  name: aiops-role # We're binding to our new, specific role
+  apiGroup: rbac.authorization.k8s.io
