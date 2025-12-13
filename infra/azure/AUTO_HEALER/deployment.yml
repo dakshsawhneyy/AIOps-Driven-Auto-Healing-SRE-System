@@ -20,6 +20,12 @@ spec:
         image: dakshsawhneyy/aiops-auto-healer:latest
         ports:
         - containerPort: 8000
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key-secret
+              key: API_KEY
         resources:
           requests:
             cpu: "200m"  

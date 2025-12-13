@@ -6,6 +6,8 @@ terraform.tfstate
 
 # kubernetes secret
 *_secret.yml
+*-secret.yml
+*-secret.yaml
 *_secret.yaml
 
 venv
