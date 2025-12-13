@@ -7,7 +7,7 @@ metadata:
 spec:
   selector:
     app: auto-healer    # select pods with this label
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     - name: http
       protocol: TCP
