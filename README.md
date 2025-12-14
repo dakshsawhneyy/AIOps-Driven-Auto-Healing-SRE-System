@@ -48,9 +48,9 @@ A simple idea:
 ### Multi-Cloud Architecture
 
 * **AKS on Azure** for running the application
-* <img width="1457" height="717" alt="image" src="https://github.com/user-attachments/assets/da6d6fa8-b106-44a5-9796-a557f9b71889" />
+<img width="1457" height="717" alt="image" src="https://github.com/user-attachments/assets/da6d6fa8-b106-44a5-9796-a557f9b71889" />
 * **AWS** for AIOps pipeline (Kinesis, Lambda, S3, DynamoDB, SNS)
-* 
+ 
 
 ### Data & Observability
 
