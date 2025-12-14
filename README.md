@@ -1,7 +1,5 @@
 # Multi-Cloud AIOps-Driven Auto-Healing SRE System
 
-## Overview
-
 Modern microservices fail unpredictably — CPU spikes, memory leaks, traffic surges, and random pod crashes.
 Traditional monitoring reacts **after** failure.
 I wanted a system that detects problems early, understands them, and heals itself.
