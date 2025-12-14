@@ -40,6 +40,7 @@ I broke the solution into small phases:
 
 A simple idea:
 **Make the system learn from chaos — then heal itself.**
+<img width="1092" height="978" alt="4295d3ca-77f1-4a21-a98c-26f1c49a626e" src="https://github.com/user-attachments/assets/1dbc6092-1df1-4026-8e42-cec588272beb" />
 
 ---
 
@@ -50,7 +51,7 @@ A simple idea:
 * **AKS on Azure** for running the application
 <img width="1457" height="717" alt="image" src="https://github.com/user-attachments/assets/da6d6fa8-b106-44a5-9796-a557f9b71889" />
 * **AWS** for AIOps pipeline (Kinesis, Lambda, S3, DynamoDB, SNS)
- 
+ <img width="1198" height="578" alt="image" src="https://github.com/user-attachments/assets/aa0778bd-a6ee-4912-8e5d-7260b26287b9" />
 
 ### Data & Observability
 
